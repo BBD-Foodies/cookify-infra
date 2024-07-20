@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  cdk-verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "20.12.0"
+          
+      - name: Assume the deploy pipeline user role
+        uses: aws-actions/configure-aws-credentials@v4.0.1
+        with:
+          role-to-assume: ${{secrets.AWS_SECRET_ASSUME_ROLE}}
+          role-session-name: federatedOIDC-GH-AWS
+          aws-region: ${{secrets.AWS_SECRET_REGION}}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: CDK Diff
+        run: npx cdk diff --require-approval never

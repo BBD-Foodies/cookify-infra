@@ -1,0 +1,16 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  cd-infrastructure:
+    name: Infrastructure CD
+    uses: ./.github/workflows/cd-infra.yaml
+    secrets: inherit
