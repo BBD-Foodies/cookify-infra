@@ -33,7 +33,7 @@ export class CookifyInfraStack extends cdk.Stack {
     const vpc = createVpc(this, props.namingPrefix);
 
     // ===== Step No. 3 =====
-    // const ec2Instance = createEC2Instance(this, vpc, props.ec2KeyPairName, props.namingPrefix);
+    const ec2Instance = createEC2Instance(this, vpc, props.ec2KeyPairName, props.namingPrefix);
 
     // ===== Step No. 4 =====
     // initializeApiGateWay(this, ec2Instance, props.apiDomain, props.apiCertArn, props.namingPrefix);
@@ -144,8 +144,8 @@ const createEC2Instance = (scope: Construct, vpc: ec2.Vpc, keyPairName: string, 
     instanceId: ec2Instance.instanceId,
   });
 
-  // const userDataScript = readFileSync('./lib/user-data.sh', 'utf8');
-  // ec2Instance.addUserData(userDataScript);
+  const userDataScript = readFileSync('./lib/user-data.sh', 'utf8');
+  ec2Instance.addUserData(userDataScript);
 
   return ec2Instance;
 }
