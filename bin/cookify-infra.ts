@@ -10,4 +10,5 @@ new CookifyInfraStack(app, 'CookifyInfraStack', {
   ec2KeyPairName: 'cookify-ec2-key',
   ghOrgName: 'BBD-Foodies',
   namingPrefix: 'cookify',
+  mongoPort: 27017,
 });
