@@ -3,16 +3,14 @@ import { Construct } from 'constructs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { CacheCookieBehavior, CacheHeaderBehavior, CachePolicy, CacheQueryStringBehavior, Distribution, OriginAccessIdentity, ViewerProtocolPolicy } from "aws-cdk-lib/aws-cloudfront";
 import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { HttpOrigin, S3Origin } from "aws-cdk-lib/aws-cloudfront-origins";
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import { readFileSync } from 'fs';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
+import * as docdb from 'aws-cdk-lib/aws-docdb';
 
 export interface ExtendedStackProps extends cdk.StackProps {
   readonly namingPrefix: string;
@@ -20,6 +18,7 @@ export interface ExtendedStackProps extends cdk.StackProps {
   readonly ec2KeyPairName: string,
   readonly apiDomain: string,
   readonly apiCertArn: string,
+  readonly mongoPort: number,
 }
 export class CookifyInfraStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ExtendedStackProps) {
@@ -35,11 +34,49 @@ export class CookifyInfraStack extends cdk.Stack {
     // ===== Step No. 3 =====
     const ec2Instance = createEC2Instance(this, vpc, props.ec2KeyPairName, props.namingPrefix);
 
+    const dbCluster = createDbCluster(this, vpc, props.namingPrefix, props.mongoPort);
+
     // ===== Step No. 4 =====
     // initializeApiGateWay(this, ec2Instance, props.apiDomain, props.apiCertArn, props.namingPrefix);
 
     // ===== Step No. 5 =====
   }
+}
+
+
+const createDbCluster = (scope: Construct, vpc: ec2.IVpc, namingPrefix: string, mongoPort: number) => {
+  const securityGroup = new ec2.SecurityGroup(scope, `${namingPrefix}-db-sec-group`, {
+    vpc,
+    description: 'Allow access to DocumentDB',
+    allowAllOutbound: true,
+    securityGroupName: `${namingPrefix}-db-sec-group`
+  });
+
+  securityGroup.addIngressRule(
+    ec2.Peer.anyIpv4(),
+    ec2.Port.tcp(mongoPort),
+    'Allow MongoDB traffic from anywhere'
+  );
+
+  const cluster = new docdb.DatabaseCluster(scope, `${namingPrefix}-doc-cluster`, {
+    masterUser: {
+      username: 'cookify-admin',
+      excludeCharacters: " %+~`#$&*()|[]{}:;<>?!'/@\"\\",
+      secretName: `${namingPrefix}-cluster-creds`
+    },
+    instanceType: ec2.InstanceType.of(
+      ec2.InstanceClass.T3,
+      ec2.InstanceSize.MEDIUM
+    ),
+    vpc,
+    securityGroup: securityGroup,
+    instances: 1,
+    storageEncrypted: true,
+    removalPolicy: cdk.RemovalPolicy.DESTROY,
+    dbClusterName: `${namingPrefix}-doc-cluster`,
+  });
+
+  return cluster;
 }
 
 
