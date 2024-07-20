@@ -60,7 +60,7 @@ const createDbCluster = (scope: Construct, vpc: ec2.IVpc, namingPrefix: string, 
 
   const cluster = new docdb.DatabaseCluster(scope, `${namingPrefix}-doc-cluster`, {
     masterUser: {
-      username: 'cookify-admin',
+      username: 'cookifyadmin',
       excludeCharacters: " %+~`#$&*()|[]{}:;<>?!'/@\"\\",
       secretName: `${namingPrefix}-cluster-creds`
     },
