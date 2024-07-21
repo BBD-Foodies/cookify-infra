@@ -34,7 +34,7 @@ export class CookifyInfraStack extends cdk.Stack {
     // ===== Step No. 3 =====
     const ec2Instance = createEC2Instance(this, vpc, props.ec2KeyPairName, props.namingPrefix);
 
-    // const dbCluster = createDbCluster(this, vpc, props.namingPrefix, props.mongoPort);
+    const dbCluster = createDbCluster(this, vpc, props.namingPrefix, props.mongoPort);
 
     // ===== Step No. 4 =====
     // initializeApiGateWay(this, ec2Instance, props.apiDomain, props.apiCertArn, props.namingPrefix);
@@ -62,18 +62,22 @@ const createDbCluster = (scope: Construct, vpc: ec2.IVpc, namingPrefix: string, 
     masterUser: {
       username: 'cookifyadmin',
       excludeCharacters: " %+~`#$&*()|[]{}:;<>?!'/@\"\\",
-      secretName: `${namingPrefix}-cluster-creds`
+      secretName: `${namingPrefix}-cluster-creds`,
     },
     instanceType: ec2.InstanceType.of(
       ec2.InstanceClass.T3,
-      ec2.InstanceSize.MEDIUM
+      ec2.InstanceSize.MEDIUM,
+
     ),
     vpc,
     securityGroup: securityGroup,
     instances: 1,
-    storageEncrypted: true,
+    storageEncrypted: false,
     removalPolicy: cdk.RemovalPolicy.DESTROY,
     dbClusterName: `${namingPrefix}-doc-cluster`,
+    vpcSubnets: {
+      subnetType: ec2.SubnetType.PUBLIC,
+    },
   });
 
   return cluster;
