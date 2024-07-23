@@ -87,7 +87,7 @@ const createDbCluster = (scope: Construct, vpc: ec2.IVpc, namingPrefix: string, 
 const initializeApiGateWay = (scope: Construct, ec2: ec2.Instance, domainNames: string, certArn: string, namingPrefix: string) => {
   const api = new apigatewayv2.HttpApi(scope, `${namingPrefix}-api-gateway`, { disableExecuteApiEndpoint: true });
 
-  const proxyIntegration = new integrations.HttpUrlIntegration(`${namingPrefix}-proxy-int`, `http://${ec2.instancePublicIp}:5000/{proxy}`);
+  const proxyIntegration = new integrations.HttpUrlIntegration(`${namingPrefix}-proxy-int`, `http://${ec2.instancePrivateIp}:5000/{proxy}`);
 
   api.addRoutes({
     path: '/{proxy+}',
@@ -190,11 +190,6 @@ const createEC2Instance = (scope: Construct, vpc: ec2.Vpc, keyPairName: string, 
 
   return ec2Instance;
 }
-
-const createDocDB = (scope: Construct, vpc: ec2.Vpc, namingPrefix: string) => {
-
-}
-
 
 const initializeOidcProvider = (scope: Construct, githubOrganisation: string, accountNumber: string, namingPrefix: string) => {
   const provider = new iam.OpenIdConnectProvider(scope, `${namingPrefix}-oidc-provider`, {
