@@ -85,9 +85,9 @@ const createDbCluster = (scope: Construct, vpc: ec2.IVpc, namingPrefix: string, 
 
 
 const initializeApiGateWay = (scope: Construct, ec2: ec2.Instance, domainNames: string, certArn: string, namingPrefix: string) => {
-  const api = new apigatewayv2.HttpApi(scope, `${namingPrefix}-api-gateway`, { disableExecuteApiEndpoint: true });
+  const api = new apigatewayv2.HttpApi(scope, `${namingPrefix}-api-gateway`, { disableExecuteApiEndpoint: false });
 
-  const proxyIntegration = new integrations.HttpUrlIntegration(`${namingPrefix}-proxy-int`, `http://${ec2.instancePrivateIp}:5000/{proxy}`);
+  const proxyIntegration = new integrations.HttpUrlIntegration(`${namingPrefix}-proxy-int`, `http://${ec2.instancePublicDnsName}:5000/{proxy}`);
 
   api.addRoutes({
     path: '/{proxy+}',
