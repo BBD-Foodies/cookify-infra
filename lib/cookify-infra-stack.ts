@@ -37,7 +37,7 @@ export class CookifyInfraStack extends cdk.Stack {
     const dbCluster = createDbCluster(this, vpc, props.namingPrefix, props.mongoPort);
 
     // ===== Step No. 4 =====
-    initializeApiGateWay(this, ec2Instance, props.apiDomain, props.apiCertArn, props.namingPrefix);
+    // initializeApiGateWay(this, ec2Instance, props.apiDomain, props.apiCertArn, props.namingPrefix);
 
     // ===== Step No. 5 =====
   }
