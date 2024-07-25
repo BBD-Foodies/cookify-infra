@@ -1,12 +1,11 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as rds from 'aws-cdk-lib/aws-rds';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import { CacheCookieBehavior, CacheHeaderBehavior, CachePolicy, CacheQueryStringBehavior, Distribution, OriginAccessIdentity, ViewerProtocolPolicy } from "aws-cdk-lib/aws-cloudfront";
 import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
-import { HttpOrigin, S3Origin } from "aws-cdk-lib/aws-cloudfront-origins";
-import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import { S3Origin } from "aws-cdk-lib/aws-cloudfront-origins";
 import { readFileSync } from 'fs';
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
@@ -19,6 +18,8 @@ export interface ExtendedStackProps extends cdk.StackProps {
   readonly apiDomain: string,
   readonly apiCertArn: string,
   readonly mongoPort: number,
+  readonly frontEndDomain: string,
+  readonly frontEndCertArn: string,
 }
 export class CookifyInfraStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ExtendedStackProps) {
@@ -32,17 +33,18 @@ export class CookifyInfraStack extends cdk.Stack {
     const vpc = createVpc(this, props.namingPrefix);
 
     // ===== Step No. 3 =====
+    const s3Bucket = createS3Bucket(this, props.namingPrefix);
     const ec2Instance = createEC2Instance(this, vpc, props.ec2KeyPairName, props.namingPrefix);
 
     const dbCluster = createDbCluster(this, vpc, props.namingPrefix, props.mongoPort);
 
     // ===== Step No. 4 =====
+    initializeCloudFrontDistribution(this, s3Bucket, props.frontEndDomain, props.frontEndCertArn, props.namingPrefix);
     initializeApiGateWay(this, ec2Instance, props.apiDomain, props.apiCertArn, props.namingPrefix);
 
     // ===== Step No. 5 =====
   }
 }
-
 
 const createDbCluster = (scope: Construct, vpc: ec2.IVpc, namingPrefix: string, mongoPort: number) => {
   const securityGroup = new ec2.SecurityGroup(scope, `${namingPrefix}-db-sec-group`, {
@@ -82,7 +84,6 @@ const createDbCluster = (scope: Construct, vpc: ec2.IVpc, namingPrefix: string, 
 
   return cluster;
 }
-
 
 const initializeApiGateWay = (scope: Construct, ec2: ec2.Instance, domainNames: string, certArn: string, namingPrefix: string) => {
   const api = new apigatewayv2.HttpApi(scope, `${namingPrefix}-api-gateway`, { disableExecuteApiEndpoint: false });
@@ -237,39 +238,38 @@ const initializeOidcProvider = (scope: Construct, githubOrganisation: string, ac
   });
 }
 
-const initializeApiCloudFrontDistribution = (scope: Construct, ec2: ec2.Instance, domainNames: string, certArn: string, namingPrefix: string) => {
-  const origin = new HttpOrigin(`${ec2.instancePublicDnsName}`, {
-    protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
-    httpPort: 5000,
+const createS3Bucket = (scope: Construct, namingPrefix: string) => {
+  const bucket = new s3.Bucket(scope, `${namingPrefix}-Bucket`, {
+    accessControl: s3.BucketAccessControl.PRIVATE,
+    bucketName: `${namingPrefix}-web-bucket`
+  })
+
+  return bucket;
+}
+
+const initializeCloudFrontDistribution = (scope: Construct, bucket: s3.Bucket, domainNames: string, certArn: string, namingPrefix: string) => {
+  const originAccessIdentity = new OriginAccessIdentity(scope, `${namingPrefix}-origin-access-identity`);
+  bucket.grantRead(originAccessIdentity);
+
+  const cachePolicy = new CachePolicy(scope, `${namingPrefix}-cache-policy`, {
+    cachePolicyName: `${namingPrefix}-cache-policy`,
+    comment: 'Custom cache policy for the CloudFront distribution',
+    defaultTtl: cdk.Duration.minutes(5),
+    minTtl: cdk.Duration.minutes(1),
+    maxTtl: cdk.Duration.minutes(5),
+    cookieBehavior: CacheCookieBehavior.none(),
+    headerBehavior: CacheHeaderBehavior.none(),
+    queryStringBehavior: CacheQueryStringBehavior.none()
   });
 
-  const cachePolicy = new CachePolicy(scope, `${namingPrefix}-api-cache-policy`, {
-    defaultTtl: cdk.Duration.seconds(0),
-    maxTtl: cdk.Duration.seconds(0),
-    minTtl: cdk.Duration.seconds(0),
-    cookieBehavior: cloudfront.CacheCookieBehavior.none(),
-    headerBehavior: cloudfront.CacheHeaderBehavior.none(),
-    cachePolicyName: `${namingPrefix}-api-cache-policy`,
-    comment: 'API Cache Policy',
-  });
-
-  const originRequestPolicy = new cloudfront.OriginRequestPolicy(scope, `${namingPrefix}-api-origin-request-policy`, {
-    queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.all(),
-    cookieBehavior: cloudfront.OriginRequestCookieBehavior.all(),
-    headerBehavior: cloudfront.OriginRequestHeaderBehavior.all(),
-    comment: 'API Origin Request Policy',
-  });
-
-  new cloudfront.Distribution(scope, `${namingPrefix}-api-distribution`, {
+  new Distribution(scope, `${namingPrefix}-distribution`, {
+    domainNames: [domainNames],
+    certificate: Certificate.fromCertificateArn(scope, `${namingPrefix}-admin-cert`, certArn),
+    defaultRootObject: 'index.html',
     defaultBehavior: {
-      origin: origin,
-      cachePolicy: cachePolicy,
-      compress: true,
-      allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
-      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-      originRequestPolicy: {
-        originRequestPolicyId: originRequestPolicy.originRequestPolicyId,
-      },
+      origin: new S3Origin(bucket, { originAccessIdentity }),
+      viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      cachePolicy: cachePolicy
     },
   });
 }
