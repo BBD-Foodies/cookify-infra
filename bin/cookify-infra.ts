@@ -13,4 +13,5 @@ new CookifyInfraStack(app, 'CookifyInfraStack', {
   mongoPort: 27017,
   frontEndCertArn: 'arn:aws:acm:us-east-1:535492056399:certificate/173bb3ba-0743-48cb-a5f4-47fe3c00af20',
   frontEndDomain: 'cookify.phipson.co.za',
+  configParamName: '/cookify/config'
 });

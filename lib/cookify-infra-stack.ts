@@ -10,6 +10,7 @@ import { readFileSync } from 'fs';
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as docdb from 'aws-cdk-lib/aws-docdb';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 
 export interface ExtendedStackProps extends cdk.StackProps {
   readonly namingPrefix: string;
@@ -20,6 +21,7 @@ export interface ExtendedStackProps extends cdk.StackProps {
   readonly mongoPort: number,
   readonly frontEndDomain: string,
   readonly frontEndCertArn: string,
+  readonly configParamName: string,
 }
 export class CookifyInfraStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ExtendedStackProps) {
@@ -43,6 +45,11 @@ export class CookifyInfraStack extends cdk.Stack {
     initializeApiGateWay(this, ec2Instance, props.apiDomain, props.apiCertArn, props.namingPrefix);
 
     // ===== Step No. 5 =====
+    const configFileJs = readFileSync('./lib/config.js', 'utf-8');
+    const configParam = new StringParameter(this, `${props.namingPrefix}-config-param`, {
+      stringValue: configFileJs,
+      parameterName: props.configParamName,
+    })
   }
 }
 
