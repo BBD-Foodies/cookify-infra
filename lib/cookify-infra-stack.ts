@@ -232,7 +232,7 @@ const initializeOidcProvider = (scope: Construct, githubOrganisation: string, ac
           new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
             actions: ['s3:PutObject'],
-            resources: [`arn:aws:s3:::short-term-lender-web-bucket/*`],
+            resources: [`arn:aws:s3:::cookify-web-bucket/*`],
           }),
           new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
